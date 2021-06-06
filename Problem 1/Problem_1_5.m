@@ -8,10 +8,10 @@ maxp = 11; % Maximum problem size in power of 2.
 times = nan(maxp,s);
 problemSizes = nan(maxp,1);
 
-%% Generate maxp QPs of size given in power of 2; 
+%% Generate maxp QPs of sizes given in powers of 2; 
 for p=1:maxp
     n = 2^p;
-    m = n;
+    m = n/2;
     problemSizes(p) = n+m;
     [H, g, A, b, x0, lambda0] = randomQP(n,m);
     [x, lambda, times(p,:)] = testSolvers(H, g, A, b, solvers);
