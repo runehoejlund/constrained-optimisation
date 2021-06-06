@@ -23,19 +23,16 @@ u = ones(n,1);
 C = [eye(n) -eye(n)];
 d = [l; -u];
 
-%%
-
-x0 = zeros(n,1);
-y0 = ones(m,1);
-z0 = ones(2*n,1);
-s0 = ones(2*n,1);
 
 %%
-[x, y, z, s, k] = PrimalDualInteriorSolver(H, g, A, b, C, d, x0, y0, z0, s0);
-[x0,~,~,~,lambda0] = quadprog(H,g,[],[],A',b,l,u);
+[x, y, z, s, k] = PrimalDualInteriorSolver(H, g, A, b, C, d)
+options = optimoptions('quadprog', 'Algorithm', 'interior-point-convex', 'Display', 'off');
+[xquad,~,~,~,lambda0] = quadprog(H,g,[],[],A',b,l,u,[],options)
+            
+quadprog(H, g, -C', -d, A', b, [], [], [], options)
 
 %%
-[x, y, z, s, ks, times, solvers] = testQPSolvers(H, g, A, b, C, d, x0, y0, z0, s0);
+[x, y, z, s, ks, times, solvers] = testQPSolvers(H, g, A, b, C, d);
 
 % Calculate and save solutions for different values of b1.
 b1s = linspace(8.5,18.68,10);
@@ -46,5 +43,8 @@ times = nan(length(b1s),s);
 ks = nan(length(b1s),s);
 for i=1:length(b1s)
     b(1) = b1s(i);
-        [xs(i,:), ~, ~, ~, ks(i,:), times(i,:)] = testQPSolvers(H, g, A, b, C, d, x0, y0, z0, s0);
+    [xs(i,:), ~, ~, ~, ks(i,:), times(i,:)] = testQPSolvers(H, g, A, b, C, d);
 end
+
+%%
+plot(b1s, times)

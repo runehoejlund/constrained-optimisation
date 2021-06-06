@@ -1,4 +1,4 @@
-function [x, y, z, s, ks, times, solvers] = testQPSolvers(H, g, A, b, C, d, x0, y0, z0, s0, solvers)
+function [x, y, z, s, ks, times, solvers] = testQPSolvers(H, g, A, b, C, d, solvers)
     % Test the different solvers
     solvers = ["My Implementation", "quadprog"];
     s = length(solvers);
@@ -21,8 +21,8 @@ function [x, y, z, s, ks, times, solvers] = testQPSolvers(H, g, A, b, C, d, x0, 
             ss(:,i) = C'*xs(:,i)-d;
             ks(:,i) = output.iterations;
         else
-            times(:,i) = timeit(@() PrimalDualInteriorSolver(H, g, A, b, C, d, x0, y0, z0, s0));
-            [xs(:,i), ys(:,i), zs(:,i), ss(:,i), ks(:,i)] = PrimalDualInteriorSolver(H, g, A, b, C, d, x0, y0, z0, s0);
+            times(:,i) = timeit(@() PrimalDualInteriorSolver(H, g, A, b, C, d));
+            [xs(:,i), ys(:,i), zs(:,i), ss(:,i), ks(:,i)] = PrimalDualInteriorSolver(H, g, A, b, C, d);
         end
     end
     % Display the solution and calculation times
@@ -32,8 +32,10 @@ function [x, y, z, s, ks, times, solvers] = testQPSolvers(H, g, A, b, C, d, x0, 
     s = ss(:,1);
     
     % Tests: Assert that the different solvers agree.
-    if rank(xs,1e-3) > 1 || rank(ys,1e-3) > 1 || rank(zs,1e-3) > 1 || rank(ss,1e-3) > 1
+    if rank(round(xs,3)) > 1 || rank(round(ss,3)) > 1
         warning("solvers disagree on solution")
+        disp(xs)
+        disp(ss)
     end
     primalFeasibility = round(sum(A'*xs-b),3) == 0;
     if any(~primalFeasibility)
