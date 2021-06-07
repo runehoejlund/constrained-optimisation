@@ -1,6 +1,6 @@
-function [x, y, z, s, ks, times, solvers] = testQPSolvers(H, g, A, b, C, d, solvers)
+function [x, y, z, s, ks, times, solvers] = testLPSolvers(g, A, b, C, d)
     % Test the different solvers
-    solvers = ["My Implementation", "quadprog"];
+    solvers = ["My Implementation", "linprog"];
     s = length(solvers);
     [n, m] = size(A);
     mc = size(C,2);
@@ -12,17 +12,17 @@ function [x, y, z, s, ks, times, solvers] = testQPSolvers(H, g, A, b, C, d, solv
     ss = nan(mc,s);
     for i = 1:s
         solver = solvers(i);
-        if solver == "quadprog"
-            options = optimoptions('quadprog', 'Algorithm', 'interior-point-convex', 'Display', 'off');
-            times(:,i) = timeit(@() quadprog(H, g, -C', -d, A', b, [], [], [], options));
-            [xs(:,i),~,~,output,lambda] = quadprog(H, g, -C', -d, A', b, [], [], [], options);
+        if solver == "linprog"
+            options = optimoptions('linprog', 'Algorithm', 'interior-point', 'Display', 'off');
+            times(:,i) = timeit(@() linprog(g, -C', -d, A', b, [], [], [], options));
+            [xs(:,i),~,~,output,lambda] = linprog(g, -C', -d, A', b, [], [], [], options);
             ys(:,i) = lambda.eqlin;
             zs(:,i) = lambda.ineqlin;
             ss(:,i) = C'*xs(:,i)-d;
             ks(:,i) = output.iterations;
         else
-            times(:,i) = timeit(@() PrimalDualInteriorQPSolver(H, g, A, b, C, d));
-            [xs(:,i), ys(:,i), zs(:,i), ss(:,i), ks(:,i)] = PrimalDualInteriorQPSolver(H, g, A, b, C, d);
+            times(:,i) = timeit(@() PrimalDualInteriorLPSolver(g, A, b, C, d));
+            [xs(:,i), ys(:,i), zs(:,i), ss(:,i), ks(:,i)] = PrimalDualInteriorLPSolver(g, A, b, C, d);
         end
     end
     % Display the solution and calculation times
@@ -33,13 +33,13 @@ function [x, y, z, s, ks, times, solvers] = testQPSolvers(H, g, A, b, C, d, solv
     
     % Tests: Assert that the different solvers agree.
     if rank(round(xs,3)) > 1 || rank(round(ss,3)) > 1
-        warning("solvers disagree on solution")
         disp(xs)
         disp(ss)
+        warning("solvers disagree on solution")
     end
     primalFeasibility = round(sum(A'*xs-b),3) == 0;
     if any(~primalFeasibility)
-        warning(strcat(solvers(~primalFeasibility), " gives inaccurate x for problem size n + m = ", string(n+mc)))
+        warning(strcat(solvers(~primalFeasibility), " gives inaccurate x for problem size n + m + mc= ", string(n + m + mc)))
     end
     
 end

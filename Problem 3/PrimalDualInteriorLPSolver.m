@@ -1,5 +1,5 @@
-function [x, y, z, s, k] = PrimalDualInteriorSolver(H, g, A, b, C, d)
-    [x, y, z, s] = getInitialPoint(H, g, A, b, C, d);
+function [x, y, z, s, k] = PrimalDualInteriorLPSolver(g, A, b, C, d)
+    [x, y, z, s] = getInitialPoint(g, A, b, C, d);
     
     mc = size(C,2);
     eta = 0.995;
@@ -13,10 +13,10 @@ function [x, y, z, s, k] = PrimalDualInteriorSolver(H, g, A, b, C, d)
         % Compute duality and residuals
         mc = size(C, 2);
         mu = (s'*z)/mc;
-        [S, Z, rL, rA, rC, rSZ] = computeResiduals(H, g, A, b, C, d, x, y, z, s);
+        [S, Z, rL, rA, rC, rSZ] = computeResiduals(g, A, b, C, d, x, y, z, s);
         
         % Check convergence
-        rLCrit = norm(rL, inf) < epsilon*max(1,norm([H g A C], inf));
+        rLCrit = norm(rL, inf) < epsilon*max(1,norm([g A C], inf));
         rACrit = norm(rA, inf) < epsilon*max(1,norm([A' b], inf));
         rCCrit = norm(rC, inf) < epsilon*max(1,norm([eye(mc) d C'], inf));
         muCrit = mu < epsilon*10^(-2)*mu0;
@@ -25,7 +25,7 @@ function [x, y, z, s, k] = PrimalDualInteriorSolver(H, g, A, b, C, d)
         end
         
         % Compute affine Newton step
-        [~, ~, dzAff, dsAff, L, D, p] = NewtonStep(H,A,C,S,Z,rL,rA,rC,rSZ);
+        [~, ~, dzAff, dsAff, L, D, p] = NewtonStep(A,C,S,Z,rL,rA,rC,rSZ);
         alphaAff = computeAlpha(z, dzAff, s, dsAff);
         
         % Set centering parameter from duality measure
@@ -39,7 +39,7 @@ function [x, y, z, s, k] = PrimalDualInteriorSolver(H, g, A, b, C, d)
         DZ = diag(dzAff);
         e = ones(mc,1);
         rSZbar = rSZ + DS*DZ*e - sigma*mu*e;
-        [dx, dy, dz, ds] = NewtonStep(H,A,C,S,Z,rL,rA,rC,rSZbar,L,D,p);
+        [dx, dy, dz, ds] = NewtonStep(A,C,S,Z,rL,rA,rC,rSZbar,L,D,p);
         
         % Compute alpha
         alpha = computeAlpha(z, dz, s, ds);
@@ -54,7 +54,7 @@ function [x, y, z, s, k] = PrimalDualInteriorSolver(H, g, A, b, C, d)
     end
 end
 
-function [x, y, z, s] = getInitialPoint(H, g, A, b, C, d)
+function [x, y, z, s] = getInitialPoint(g, A, b, C, d)
     m = size(A,2);
     [n, mc] = size(C);
     x0 = ones(n,1);
@@ -62,34 +62,33 @@ function [x, y, z, s] = getInitialPoint(H, g, A, b, C, d)
     z0 = ones(mc,1);
     s0 = ones(mc,1);
     
-    [S, Z, rL, rA, rC, rSZ] = computeResiduals(H, g, A, b, C, d, x0, y0, z0, s0);
-    [dxAff, dyAff, dzAff, dsAff] = NewtonStep(H,A,C,S,Z,rL,rA,rC,rSZ);
+    [S, Z, rL, rA, rC, rSZ] = computeResiduals(g, A, b, C, d, x0, y0, z0, s0);
+    [dxAff, dyAff, dzAff, dsAff] = NewtonStep(A,C,S,Z,rL,rA,rC,rSZ);
     x = x0 + dxAff;
     y = y0 + dyAff;
     z = max(1, abs(z0 + dzAff));
     s = max(1, abs(s0 + dsAff));
 end
 
-function [S, Z, rL, rA, rC, rSZ] = computeResiduals(H, g, A, b, C, d, x, y, z, s)
+function [S, Z, rL, rA, rC, rSZ] = computeResiduals(g, A, b, C, d, x, y, z, s)
     % Compute residuals
     mc = size(C,2);
     e = ones(mc,1);
     S = diag(s);
     Z = diag(z);
-    rL =  H*x-A*y-C*z+g;
+    rL =  -A*y-C*z+g;
     rA =  -A'*x+b;
     rC =  -C'*x+s+d;
     rSZ = S*Z*e;
 end
 
-function [dx, dy, dz, ds, L, D, p] = NewtonStep(H,A,C,S,Z,rL,rA,rC,rSZ,L,D,p)
+function [dx, dy, dz, ds, L, D, p] = NewtonStep(A,C,S,Z,rL,rA,rC,rSZ,L,D,p)
     % Compute affine direction using LDL factorisation
     % The function accepts the L D p vectors as optional arguments
     % so they can be reused if they have already been calculated
     [n, m] = size(A);
     if nargin < 10
-        Hbar = H + C*(S \ Z)*C';
-        Kbar = sparse([ Hbar     -A;
+        Kbar = sparse([ C*(S \ Z)*C'     -A;
                     -A'   zeros(m)]);
         [L, D, p] = ldl(Kbar, 'lower', 'vector');
     end
@@ -103,6 +102,9 @@ function [dx, dy, dz, ds, L, D, p] = NewtonStep(H,A,C,S,Z,rL,rA,rC,rSZ,L,D,p)
 end
 
 function [alpha] = computeAlpha(z, dz, s, ds)
+    % Function for computing alpha.
+    % Note: We could use different alphas for z and s
+    % to enhance performance.
     iz = dz < 0;
     is = ds < 0;
     alpha = min([1,...
